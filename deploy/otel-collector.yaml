@@ -1,0 +1,36 @@
+receivers:
+  otlp:
+    protocols:
+      grpc: { endpoint: 0.0.0.0:4317 }
+      http: { endpoint: 0.0.0.0:4318 }
+
+processors:
+  batch: {}
+  # Drop prompt/completion text before it leaves the collector, even if an app
+  # enabled content capture. Remove this processor to keep content in traces.
+  # attributes/redact:
+  #   actions:
+  #     - { key: gen_ai.input.messages, action: delete }
+  #     - { key: gen_ai.output.messages, action: delete }
+
+exporters:
+  otlp_grpc/jaeger:
+    endpoint: jaeger:4317
+    tls: { insecure: true }
+  prometheus:
+    endpoint: 0.0.0.0:8889
+  # Optional: also send traces to Langfuse (cloud or self-hosted).
+  # otlphttp/langfuse:
+  #   endpoint: https://cloud.langfuse.com/api/public/otel
+  #   headers: { Authorization: "Basic ${env:LANGFUSE_AUTH}" }   # base64(public_key:secret_key)
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlp_grpc/jaeger]          # add otlphttp/langfuse here to fan out
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [prometheus]

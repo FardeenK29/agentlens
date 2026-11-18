@@ -1,0 +1,48 @@
+# Alert rules for LLM agents instrumented with AgentLens.
+# Thresholds are starting points; tune them to your traffic.
+groups:
+  - name: agentlens
+    rules:
+      - alert: AgentToolErrorRateHigh
+        expr: |
+          sum by (gen_ai_tool_name) (rate(agentlens_tool_calls_total{status="error"}[5m]))
+            / sum by (gen_ai_tool_name) (rate(agentlens_tool_calls_total[5m])) > 0.05
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: "Tool {{ $labels.gen_ai_tool_name }} is failing on {{ $value | humanizePercentage }} of calls"
+
+      - alert: AgentRunLatencyP95High
+        expr: |
+          histogram_quantile(0.95, sum by (le, gen_ai_agent_name) (rate(agentlens_agent_run_duration_seconds_bucket[10m]))) > 30
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "p95 run latency for {{ $labels.gen_ai_agent_name }} is {{ $value | humanizeDuration }}"
+
+      - alert: AgentRunsFailing
+        expr: |
+          sum by (gen_ai_agent_name) (rate(agentlens_agent_runs_total{status="error"}[5m]))
+            / sum by (gen_ai_agent_name) (rate(agentlens_agent_runs_total[5m])) > 0.02
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: "{{ $labels.gen_ai_agent_name }}: {{ $value | humanizePercentage }} of runs end in an error"
+
+      - alert: AgentTokenBurnHigh
+        # Average input tokens per run; a sudden jump usually means context bloat or a loop.
+        expr: |
+          sum by (gen_ai_agent_name) (rate(gen_ai_client_token_usage_sum{gen_ai_token_type="input"}[10m]))
+            / sum by (gen_ai_agent_name) (rate(agentlens_agent_runs_total[10m])) > 20000
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "{{ $labels.gen_ai_agent_name }} is using {{ $value | humanize }} input tokens per run"
+
+      - alert: AgentSpendHigh
+        # Only fires for priced (hosted) models. Daily-rate projection of the last hour.
+        expr: sum by (gen_ai_agent_name) (increase(agentlens_llm_cost_usd_total[1h])) * 24 > 50
+        for: 15m
+        labels: { severity: warning }
+        annotations:
+          summary: "{{ $labels.gen_ai_agent_name }} is on track to spend ${{ $value | humanize }}/day"

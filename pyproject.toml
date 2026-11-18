@@ -1,0 +1,28 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "agentlens"
+version = "0.1.0"
+description = "OpenTelemetry tracing, cost and latency metrics for LangGraph / LangChain agents"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [{ name = "Fardeen Khatri" }]
+dependencies = [
+  "langchain-core>=0.3",
+  "opentelemetry-api>=1.27",
+  "opentelemetry-sdk>=1.27",
+  "opentelemetry-exporter-otlp-proto-http>=1.27",
+]
+
+[project.optional-dependencies]
+demo = ["langgraph>=0.3", "langchain>=0.3", "langchain-openai", "langchain-anthropic", "python-dotenv"]
+dev = ["pytest", "langgraph>=0.3"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/agentlens"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
